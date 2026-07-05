@@ -89,19 +89,20 @@ class ChatCompanionEngine {
      * Main conversation router. Uses Gemini API if configured; otherwise falls back to local offline rules.
      */
     async processMessage(userText) {
-        // Check if API Key is configured and not the placeholder
-        const hasGeminiKey = typeof GEMINI_CONFIG !== 'undefined' && 
-                             GEMINI_CONFIG.apiKey && 
-                             GEMINI_CONFIG.apiKey !== "YOUR_GEMINI_API_KEY_HERE" && 
-                             GEMINI_CONFIG.apiKey.trim() !== "";
+        // Check if API Key is configured (read fresh from localStorage each time)
+        const apiKeyFromStorage = localStorage.getItem('gemini_api_key');
+        const hasGeminiKey = apiKeyFromStorage && 
+                             apiKeyFromStorage !== "YOUR_GEMINI_API_KEY_HERE" && 
+                             apiKeyFromStorage.trim() !== "";
 
         if (!hasGeminiKey) {
             console.log("Gemini API key not configured. Using local offline rule-based fallback.");
+            console.log("To enable Gemini: localStorage.setItem('gemini_api_key', 'YOUR_KEY_HERE')");
             return this.processMessageFallback(userText);
         }
 
         try {
-            const apiKey = GEMINI_CONFIG.apiKey;
+            const apiKey = apiKeyFromStorage;
             const model = GEMINI_CONFIG.model || "gemini-2.5-flash";
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 

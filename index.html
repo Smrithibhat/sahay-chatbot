@@ -442,16 +442,26 @@
     <!-- Project JS Module Scripts -->
     <script src="config.js"></script>
     <script>
-        // Initialize Gemini API Key from .env (development) or localStorage
-        // For production: set via environment or secure backend
+        // Initialize Gemini API Key for development
         function initializeApiKey() {
             const apiKey = localStorage.getItem('gemini_api_key');
-            if (!apiKey) {
-                console.warn("⚠️ Gemini API key not configured. Using offline mode.");
-                console.log("To enable full AI features, run in browser console:\n  localStorage.setItem('gemini_api_key', 'YOUR_API_KEY_HERE')");
+            if (apiKey) {
+                console.log("✓ Gemini API key loaded from localStorage");
+                GEMINI_CONFIG.apiKey = apiKey; // Update the config
+            } else {
+                console.warn("⚠️ Gemini API key not found in localStorage");
+                console.log("To enable full AI features, run this in the browser console:");
+                console.log("  localStorage.setItem('gemini_api_key', 'YOUR_API_KEY_HERE')");
+                console.log("Then reload the page.");
             }
         }
-        initializeApiKey();
+        
+        // Run initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApiKey);
+        } else {
+            initializeApiKey();
+        }
     </script>
     <script src="speech.js"></script>
     <script src="chat.js"></script>
