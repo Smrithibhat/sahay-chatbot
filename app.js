@@ -1,7 +1,3 @@
-/**
- * Sahay Elder-Care Orchestrator
- * Connects Speech, Chat, Medication scheduler, Hydration garden, and Ambient synthesizer.
- */
 
 class SahayApplication {
     constructor() {
@@ -298,21 +294,29 @@ class SahayApplication {
         this.dom.chatHistory.scrollTop = this.dom.chatHistory.scrollHeight;
 
         // Delay response to simulate warm reflection
-        setTimeout(() => {
-            const { reply, action } = this.chatEngine.processMessage(text);
-            
-            // Hide typing indicator
-            this.dom.typingIndicator.style.display = "none";
-            
-            // Append Sahay balloon
-            this.appendChatMessage("bot", reply);
-            
-            // Speak response if enabled
-            this.speech.speak(reply);
+        setTimeout(async () => {
+            try {
+                const { reply, action } = await this.chatEngine.processMessage(text);
+                
+                // Hide typing indicator
+                this.dom.typingIndicator.style.display = "none";
+                
+                // Append Sahay balloon
+                this.appendChatMessage("bot", reply);
+                
+                // Speak response if enabled
+                this.speech.speak(reply);
 
-            // Execute bot UI action hooks
-            if (action) {
-                this.executeChatAction(action);
+                // Execute bot UI action hooks
+                if (action) {
+                    this.executeChatAction(action);
+                }
+            } catch (err) {
+                console.error("Error generating Sahay message:", err);
+                this.dom.typingIndicator.style.display = "none";
+                const errReply = "I am so sorry, but I'm having a small issue processing that request. Please try again or check your settings.";
+                this.appendChatMessage("bot", errReply);
+                this.speech.speak(errReply);
             }
         }, 1200);
     }

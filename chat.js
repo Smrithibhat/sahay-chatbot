@@ -63,9 +63,166 @@ class ChatCompanionEngine {
     }
 
     /**
-     * Main conversation router. Takes user text, analyses it, updates profile memory, and outputs a comforting text reply.
+     * Helpers to load and save chat history for API context
      */
-    processMessage(userText) {
+    getChatHistory() {
+        const stored = localStorage.getItem(this.historyKey);
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                console.error("Error parsing chat history:", e);
+            }
+        }
+        return [];
+    }
+
+    saveChatHistory(history) {
+        // Cap history to last 20 messages to keep request payload light
+        if (history.length > 20) {
+            history = history.slice(-20);
+        }
+        localStorage.setItem(this.historyKey, JSON.stringify(history));
+    }
+
+    /**
+     * Main conversation router. Uses Gemini API if configured; otherwise falls back to local offline rules.
+     */
+    async processMessage(userText) {
+        // Check if API Key is configured and not the placeholder
+        const hasGeminiKey = typeof GEMINI_CONFIG !== 'undefined' && 
+                             GEMINI_CONFIG.apiKey && 
+                             GEMINI_CONFIG.apiKey !== "YOUR_GEMINI_API_KEY_HERE" && 
+                             GEMINI_CONFIG.apiKey.trim() !== "";
+
+        if (!hasGeminiKey) {
+            console.log("Gemini API key not configured. Using local offline rule-based fallback.");
+            return this.processMessageFallback(userText);
+        }
+
+        try {
+            const apiKey = GEMINI_CONFIG.apiKey;
+            const model = GEMINI_CONFIG.model || "gemini-2.5-flash";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+            // Build system prompt using current user profile details
+            const systemPrompt = `You are Sahay (which means Helper in Sanskrit), a warm, patient, loving, and polite AI companion for elderly individuals. 
+Your goal is to make the user feel safe, heard, respected, and comforted. 
+Use warm, polite, and reassuring language. Use formatting like **bolding** for important parts.
+Avoid complex jargon. Keep your responses relatively concise but filled with warmth and care.
+
+Information about the user:
+- Name: ${this.profile.userName || "Not known yet (please ask politely for their name if not known)"}
+- Grandchildren/Family: ${this.profile.grandkids || "Not specified yet"}
+- Hobbies/Interests: ${this.profile.hobbies || "Not specified yet"}
+
+If the user mentions names of grandchildren, family, or hobbies, capture them and return them in 'extractedProfileUpdates'.
+`;
+
+            const history = this.getChatHistory();
+            const apiContents = history.map(item => ({
+                role: item.role === "bot" ? "model" : "user",
+                parts: [{ text: item.parts[0].text || item.parts[0] }]
+            }));
+
+            // Append current message
+            apiContents.push({
+                role: "user",
+                parts: [{ text: userText }]
+            });
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    contents: apiContents,
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                    generationConfig: {
+                        temperature: GEMINI_CONFIG.temperature || 0.7,
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                reply: {
+                                    type: "STRING",
+                                    description: "Empathic, warm, polite, and reassuring response to the user. Maintain the persona of Sahay, the care companion."
+                                },
+                                action: {
+                                    type: "STRING",
+                                    enum: ["suggest_breathing", "suggest_sounds", "start_breathing", "show_meds", "show_hydration"],
+                                    description: "Optional UI action to trigger. Use 'suggest_breathing' if the user mentions physical pain, comfort, or tension. Use 'suggest_sounds' if they express sadness, loneliness, or anxiety. Use 'start_breathing' if they explicitly ask to breathe or relax. Use 'show_meds' if they ask about medicine, pills, or schedules. Use 'show_hydration' if they ask about water or drinking. Otherwise, leave empty or null."
+                                },
+                                extractedProfileUpdates: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        userName: { "type": "STRING", "description": "The user's name if they introduced themselves or requested to be called something." },
+                                        grandkids: { "type": "STRING", "description": "Names of grandchildren or family members mentioned by the user." },
+                                        hobbies: { "type": "STRING", "description": "Hobbies or favorite activities mentioned by the user." }
+                                    },
+                                    description: "Extract any new personal details mentioned by the user to save in their persistent profile."
+                                }
+                            },
+                            required: ["reply"]
+                        }
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Gemini API HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const rawText = data.candidates[0].content.parts[0].text;
+            const parsed = JSON.parse(rawText);
+
+            const reply = parsed.reply;
+            const action = parsed.action ? { type: parsed.action } : null;
+
+            // Apply extracted profile updates to localStorage profile
+            if (parsed.extractedProfileUpdates) {
+                let updated = false;
+                const updates = parsed.extractedProfileUpdates;
+                if (updates.userName && updates.userName !== this.profile.userName) {
+                    this.profile.userName = updates.userName;
+                    this.profile.firstTime = false;
+                    updated = true;
+                }
+                if (updates.grandkids && updates.grandkids !== this.profile.grandkids) {
+                    this.profile.grandkids = updates.grandkids;
+                    updated = true;
+                }
+                if (updates.hobbies && updates.hobbies !== this.profile.hobbies) {
+                    this.profile.hobbies = updates.hobbies;
+                    updated = true;
+                }
+                if (updated) {
+                    this.saveProfile();
+                }
+            }
+
+            // Save exchange to local history cache
+            const updatedHistory = this.getChatHistory();
+            updatedHistory.push({ role: "user", parts: [{ text: userText }] });
+            updatedHistory.push({ role: "bot", parts: [{ text: reply }] });
+            this.saveChatHistory(updatedHistory);
+
+            return { reply, action };
+
+        } catch (err) {
+            console.error("Gemini API call failed, falling back to offline rules:", err);
+            return this.processMessageFallback(userText);
+        }
+    }
+
+    /**
+     * Local rule-based processing engine (Fallback Mode)
+     */
+    processMessageFallback(userText) {
         const text = userText.trim().toLowerCase();
         let reply = "";
         let action = null; // Optional dynamic UI trigger
