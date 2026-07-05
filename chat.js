@@ -90,28 +90,41 @@ class ChatCompanionEngine {
      */
     async processMessage(userText) {
         // Check if API Key is configured - try config first, then localStorage
-        const apiKey = GEMINI_CONFIG.apiKey || localStorage.getItem('gemini_api_key');
-        const hasGeminiKey = apiKey && 
-                             apiKey !== "YOUR_GEMINI_API_KEY_HERE" && 
-                             apiKey.trim() !== "";
+        const clientApiKey = GEMINI_CONFIG.apiKey || localStorage.getItem('gemini_api_key');
+        const hasClientKey = clientApiKey && 
+                             clientApiKey !== "YOUR_GEMINI_API_KEY_HERE" && 
+                             clientApiKey.trim() !== "";
 
-        console.log("[Sahay Debug] API Key Status:", {
-            hasKey: hasGeminiKey,
-            keyLength: apiKey ? apiKey.length : 0,
-            keyPrefix: apiKey ? apiKey.substring(0, 10) + "..." : "NONE"
+        console.log("[Sahay Debug] Client API Key Status:", {
+            hasClientKey,
+            keyLength: clientApiKey ? clientApiKey.length : 0,
         });
 
-        if (!hasGeminiKey) {
-            console.log("❌ Gemini API key not configured. Using local offline rule-based fallback.");
-            console.log("📝 To enable: run in console: setGeminiApiKey('YOUR_API_KEY_HERE')");
+        // If there's no client key, check whether the deployed server proxy has a key
+        let serverHasKey = false;
+        if (!hasClientKey) {
+            try {
+                const health = await fetch('/.netlify/functions/gemini-proxy', { method: 'GET' });
+                if (health.ok) {
+                    const healthJson = await health.json();
+                    serverHasKey = !!healthJson.hasKey;
+                }
+            } catch (e) {
+                console.warn('Server health check failed', e);
+            }
+        }
+
+        // If no key anywhere, fallback to offline rules
+        if (!hasClientKey && !serverHasKey) {
+            console.log("❌ No Gemini API key found (client or server). Using local offline fallback.");
             return this.processMessageFallback(userText);
         }
 
         try {
-            console.log("✓ Using Gemini API...");
+            console.log("✓ Using Gemini API (server proxy preferred if available)...");
             const model = GEMINI_CONFIG.model || "gemini-2.5-flash";
             // Use server-side proxy when deployed (Netlify function) to keep API key secret
-            const url = '/.netlify/functions/gemini-proxy';
+            const url = serverHasKey ? '/.netlify/functions/gemini-proxy' : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${clientApiKey}`;
 
             // Build system prompt using current user profile details
             const systemPrompt = `You are Sahay (which means Helper in Sanskrit), a warm, patient, loving, and polite AI companion for elderly individuals. 
