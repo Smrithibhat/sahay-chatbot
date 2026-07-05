@@ -110,7 +110,8 @@ class ChatCompanionEngine {
         try {
             console.log("✓ Using Gemini API...");
             const model = GEMINI_CONFIG.model || "gemini-2.5-flash";
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            // Use server-side proxy when deployed (Netlify function) to keep API key secret
+            const url = '/.netlify/functions/gemini-proxy';
 
             // Build system prompt using current user profile details
             const systemPrompt = `You are Sahay (which means Helper in Sanskrit), a warm, patient, loving, and polite AI companion for elderly individuals. 
