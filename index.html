@@ -450,11 +450,20 @@
                 GEMINI_CONFIG.apiKey = apiKey; // Update the config
             } else {
                 console.warn("⚠️ Gemini API key not found in localStorage");
-                console.log("To enable full AI features, run this in the browser console:");
-                console.log("  localStorage.setItem('gemini_api_key', 'YOUR_API_KEY_HERE')");
-                console.log("Then reload the page.");
+                console.log("📝 Setup Instructions:");
+                console.log("   1. Copy your API key from https://makersuite.google.com/app/apikey");
+                console.log("   2. Run this in the browser console:");
+                console.log("      setGeminiKey('YOUR_API_KEY_HERE')");
+                console.log("   3. Reload the page");
             }
         }
+        
+        // Helper function to easily set the API key
+        window.setGeminiKey = function(apiKey) {
+            localStorage.setItem('gemini_api_key', apiKey);
+            GEMINI_CONFIG.apiKey = apiKey;
+            console.log("✓ Gemini API key set! Reload the page to start using it.");
+        };
         
         // Run initialization when DOM is ready
         if (document.readyState === 'loading') {

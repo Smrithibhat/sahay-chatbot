@@ -95,13 +95,20 @@ class ChatCompanionEngine {
                              apiKeyFromStorage !== "YOUR_GEMINI_API_KEY_HERE" && 
                              apiKeyFromStorage.trim() !== "";
 
+        console.log("[Sahay Debug] API Key Status:", {
+            hasKey: hasGeminiKey,
+            keyLength: apiKeyFromStorage ? apiKeyFromStorage.length : 0,
+            keyPrefix: apiKeyFromStorage ? apiKeyFromStorage.substring(0, 10) + "..." : "NONE"
+        });
+
         if (!hasGeminiKey) {
-            console.log("Gemini API key not configured. Using local offline rule-based fallback.");
-            console.log("To enable Gemini: localStorage.setItem('gemini_api_key', 'YOUR_KEY_HERE')");
+            console.log("❌ Gemini API key not configured. Using local offline rule-based fallback.");
+            console.log("📝 To enable Gemini: localStorage.setItem('gemini_api_key', 'YOUR_KEY_HERE')");
             return this.processMessageFallback(userText);
         }
 
         try {
+            console.log("✓ Using Gemini API...");
             const apiKey = apiKeyFromStorage;
             const model = GEMINI_CONFIG.model || "gemini-2.5-flash";
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -215,7 +222,12 @@ If the user mentions names of grandchildren, family, or hobbies, capture them an
             return { reply, action };
 
         } catch (err) {
-            console.error("Gemini API call failed, falling back to offline rules:", err);
+            console.error("❌ Gemini API call failed:", {
+                message: err.message,
+                status: err.status,
+                fullError: err
+            });
+            console.log("🔄 Falling back to offline rules...");
             return this.processMessageFallback(userText);
         }
     }
