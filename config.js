@@ -1,16 +1,18 @@
 
-// Load API key from localStorage (set during initialization)
-// For local development: manually set in console with:
-// localStorage.setItem('gemini_api_key', 'YOUR_KEY_HERE')
+// Gemini API Configuration
+// DO NOT commit API keys to Git! 
+// For local development: set the key in localStorage via browser console or load from .env
+
 const GEMINI_CONFIG = {
+    // Load from localStorage if available, otherwise empty
     apiKey: localStorage.getItem('gemini_api_key') || "",
     model: "gemini-2.5-flash",
     temperature: 0.7
 };
 
-// Helper function to set API key (call this once at startup)
+// Helper function to set API key at runtime
 function setGeminiApiKey(apiKey) {
-    localStorage.setItem('gemini_api_key', apiKey);
     GEMINI_CONFIG.apiKey = apiKey;
-    console.log("Gemini API key configured successfully");
+    localStorage.setItem('gemini_api_key', apiKey);
+    console.log("✓ Gemini API key configured successfully");
 }

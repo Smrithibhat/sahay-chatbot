@@ -442,34 +442,16 @@
     <!-- Project JS Module Scripts -->
     <script src="config.js"></script>
     <script>
-        // Initialize Gemini API Key for development
-        function initializeApiKey() {
-            const apiKey = localStorage.getItem('gemini_api_key');
-            if (apiKey) {
-                console.log("✓ Gemini API key loaded from localStorage");
-                GEMINI_CONFIG.apiKey = apiKey; // Update the config
-            } else {
-                console.warn("⚠️ Gemini API key not found in localStorage");
-                console.log("📝 Setup Instructions:");
-                console.log("   1. Copy your API key from https://makersuite.google.com/app/apikey");
-                console.log("   2. Run this in the browser console:");
-                console.log("      setGeminiKey('YOUR_API_KEY_HERE')");
-                console.log("   3. Reload the page");
-            }
-        }
+        // Log API setup status on page load
+        console.log("%c🔑 Sahay API Setup", "color: #4CAF50; font-size: 14px; font-weight: bold");
         
-        // Helper function to easily set the API key
-        window.setGeminiKey = function(apiKey) {
-            localStorage.setItem('gemini_api_key', apiKey);
-            GEMINI_CONFIG.apiKey = apiKey;
-            console.log("✓ Gemini API key set! Reload the page to start using it.");
-        };
-        
-        // Run initialization when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApiKey);
+        if (!GEMINI_CONFIG.apiKey) {
+            console.log("%c⚠️ Gemini API Key not configured", "color: #FF9800; font-weight: bold");
+            console.log("To enable full AI features, paste this in the console:");
+            console.log("setGeminiApiKey('YOUR_API_KEY_HERE')");
+            console.log("Get your key from: https://makersuite.google.com/app/apikey");
         } else {
-            initializeApiKey();
+            console.log("%c✓ API Key detected (length: " + GEMINI_CONFIG.apiKey.length + ")", "color: #4CAF50");
         }
     </script>
     <script src="speech.js"></script>
